@@ -40,7 +40,7 @@ export class Pipeline extends cdk.Stack {
         version: "0.2",
         phases: {
           install: {
-            runtimeVersions: {
+            "runtime-versions": {
               nodejs: "20",
             },
             commands: ["npm ci --prefix infra"],
@@ -52,6 +52,9 @@ export class Pipeline extends cdk.Stack {
               "npx cdk synth -o dist",
             ],
           },
+        },
+        cache: {
+          paths: ["/root/.npm"],
         },
         artifacts: {
           "base-directory": "infra/dist",
@@ -89,6 +92,9 @@ export class Pipeline extends cdk.Stack {
               "npx cdk deploy InfraStack --require-approval never",
             ],
           },
+        },
+        cache: {
+          paths: ["/root/.npm"],
         },
       }),
     });
