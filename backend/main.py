@@ -25,7 +25,8 @@ active_table = table_prod if APP_ENV == "prod" else table_dev
 origins = [
     "http://localhost:8000",
     "http://localhost:3000",
-    "https://bbc.adamsulemanji.com"
+    "https://bbc.adamsulemanji.com",
+    "https://api.bbc.adamsulemanji.com",
 ]
 
 app.add_middleware(
