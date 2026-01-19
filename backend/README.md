@@ -8,13 +8,16 @@ docker build -t fastapi-local .
 ```
 
 ### Run the Docker Container
-Pass the development table name as an environment variable at runtime:
+Set the environment for DynamoDB table selection at runtime:
 ```sh
 docker run \
   -p 8000:8000 \
   -v ~/.aws:/root/.aws:ro \
   -e AWS_PROFILE=default \
   -e AWS_DEFAULT_REGION=us-east-1 \
+  -e APP_ENV=dev \
+  -e BBC_TABLE_PROD=bbc_prod \
+  -e BBC_TABLE_DEV=bbc_dev \
   fastapi-local
 ```
 
@@ -28,4 +31,3 @@ or Ctrl+C in the terminal.
 ### Access the API specifications
 
 Visit http://localhost:8000/docs or http://localhost:8000/redoc to view the API documentation.
-

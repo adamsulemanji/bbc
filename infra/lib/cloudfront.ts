@@ -1,0 +1,203 @@
+import { Construct } from "constructs";
+import * as cdk from "aws-cdk-lib";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origin from "aws-cdk-lib/aws-cloudfront-origins";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as bucket from "aws-cdk-lib/aws-s3-deployment";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as route53targets from "aws-cdk-lib/aws-route53-targets";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as path from "path";
+import { CONFIG } from "./config";
+
+export class FrontendConstruct extends Construct {
+  public readonly siteBucket: s3.Bucket;
+  public readonly distribution: cloudfront.Distribution;
+
+  constructor(scope: Construct, id: string, apis: apigateway.LambdaRestApi[]) {
+    super(scope, id);
+
+    const domainName = CONFIG.domainName;
+    const subDomain = CONFIG.subDomain;
+
+    // ********** Frontend Bucket **********
+    this.siteBucket = new s3.Bucket(this, `FrontendBucket-${subDomain}`, {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const cloudfrontOAI = new cloudfront.OriginAccessIdentity(
+      this,
+      `cloudfront-OAI-${subDomain}`
+    );
+
+    // ********** Bucket Policy **********
+    this.siteBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        resources: [this.siteBucket.arnForObjects("*")],
+        principals: [
+          new iam.CanonicalUserPrincipal(
+            cloudfrontOAI.cloudFrontOriginAccessIdentityS3CanonicalUserId
+          ),
+        ],
+      })
+    );
+
+    // ********** Route 53 **********
+    const zone = route53.HostedZone.fromLookup(this, "HostedZone", {
+      domainName: domainName,
+    });
+
+    // ********** ACM Certificate **********
+    const certificate = new acm.Certificate(this, `Certificate-${subDomain}`, {
+      domainName: `${subDomain}.${domainName}`,
+      validation: acm.CertificateValidation.fromDns(zone),
+    });
+
+    // ********** Response Headers Policy **********
+    const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
+      this,
+      `ResponseHeadersPolicy-${subDomain}`,
+      {
+        securityHeadersBehavior: {
+          strictTransportSecurity: {
+            accessControlMaxAge: cdk.Duration.days(365),
+            includeSubdomains: true,
+            override: true,
+          },
+          contentTypeOptions: { override: true },
+          frameOptions: {
+            frameOption: cloudfront.HeadersFrameOption.DENY,
+            override: true,
+          },
+          xssProtection: {
+            protection: true,
+            modeBlock: true,
+            override: true,
+          },
+          referrerPolicy: {
+            referrerPolicy:
+              cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+            override: true,
+          },
+        },
+      }
+    );
+
+    // ********** CloudFront Distribution **********
+    const s3Origin = new origin.S3Origin(this.siteBucket, {
+      originAccessIdentity: cloudfrontOAI,
+    });
+
+    this.distribution = new cloudfront.Distribution(
+      this,
+      `myDist-${subDomain}`,
+      {
+        defaultBehavior: {
+          origin: s3Origin,
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          responseHeadersPolicy: responseHeadersPolicy,
+        },
+        defaultRootObject: "index.html",
+        domainNames: [`${subDomain}.${domainName}`],
+        certificate: certificate,
+        errorResponses: [
+          {
+            httpStatus: 403,
+            responseHttpStatus: 200,
+            responsePagePath: "/index.html",
+            ttl: cdk.Duration.minutes(1),
+          },
+          {
+            httpStatus: 404,
+            responseHttpStatus: 200,
+            responsePagePath: "/index.html",
+            ttl: cdk.Duration.minutes(1),
+          },
+        ],
+      }
+    );
+
+    // ********** Route 53 Alias Record **********
+    new route53.ARecord(this, `AliasRecord-${subDomain}`, {
+      zone: zone,
+      recordName: `${subDomain}`,
+      target: route53.RecordTarget.fromAlias(
+        new route53targets.CloudFrontTarget(this.distribution)
+      ),
+    });
+
+    // ********** Bucket Deployment **********
+    new bucket.BucketDeployment(this, `DeployWithInvalidation-${subDomain}`, {
+      sources: [
+        bucket.Source.asset(path.join(__dirname, "../../frontend/build")),
+      ],
+      destinationBucket: this.siteBucket,
+      distribution: this.distribution,
+      memoryLimit: 1024,
+      ephemeralStorageSize: cdk.Size.mebibytes(1024),
+      distributionPaths: ["/*"],
+    });
+
+    // ********** Output **********
+    new cdk.CfnOutput(this, `DistributionDomainName-${subDomain}`, {
+      value: this.distribution.domainName,
+      description: `Distribution Domain Name for ${subDomain}`,
+      exportName: `DistributionDomainName-${subDomain}`,
+    });
+
+    // ********** APIGateway Production **********
+    const apiSubDomain = CONFIG.apiSubDomain;
+    const apiDomainName = `${apiSubDomain}.${domainName}`;
+
+    const apiCertificate = new acm.Certificate(
+      this,
+      "CustomDomainCertificate",
+      {
+        domainName: apiDomainName,
+        validation: acm.CertificateValidation.fromDns(zone),
+      }
+    );
+
+    const apiDomain = new apigateway.DomainName(this, "CustomDomain", {
+      domainName: apiDomainName,
+      certificate: apiCertificate,
+      endpointType: apigateway.EndpointType.EDGE,
+      securityPolicy: apigateway.SecurityPolicy.TLS_1_2,
+    });
+
+    new apigateway.BasePathMapping(this, "BasePathMapping", {
+      domainName: apiDomain,
+      restApi: apis[0],
+      basePath: "",
+    });
+
+    new route53.ARecord(this, "CustomDomainAliasRecord", {
+      zone: zone,
+      recordName: apiSubDomain,
+      target: route53.RecordTarget.fromAlias(
+        new route53targets.ApiGatewayDomain(apiDomain)
+      ),
+    });
+
+    new cdk.CfnOutput(this, "MealsAPIDomain", {
+      value: `https://${apiDomainName}`,
+      description: "Custom Domain URL for the Meals API service",
+    });
+
+    new cdk.CfnOutput(this, "ApiUrlProd", {
+      value: apis[0].url,
+      description: "Default Invoke URL for the FastAPI service",
+    });
+
+    new cdk.CfnOutput(this, "ApiUrlDev", {
+      value: apis[1].url,
+      description: "Default Invoke URL for the FastAPI service",
+    });
+  }
+}

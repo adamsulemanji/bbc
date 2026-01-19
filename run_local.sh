@@ -41,6 +41,9 @@ docker run -d \
   -v ~/.aws:/root/.aws:ro \
   -e AWS_PROFILE=default \
   -e AWS_DEFAULT_REGION=us-east-1 \
+  -e APP_ENV=dev \
+  -e BBC_TABLE_PROD=bbc_prod \
+  -e BBC_TABLE_DEV=bbc_dev \
   fastapi-local
 
 

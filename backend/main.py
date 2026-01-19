@@ -11,6 +11,16 @@ from mangum import Mangum
 
 app = FastAPI()
 
+# DynamoDB setup uses env variables so dev/prod can share code paths.
+APP_ENV = os.getenv("APP_ENV", "dev").lower()
+TABLE_NAME_PROD = os.getenv("BBC_TABLE_PROD", "bbc_prod")
+TABLE_NAME_DEV = os.getenv("BBC_TABLE_DEV", "bbc_dev")
+
+dynamodb = boto3.resource("dynamodb")
+table_prod = dynamodb.Table(TABLE_NAME_PROD)
+table_dev = dynamodb.Table(TABLE_NAME_DEV)
+active_table = table_prod if APP_ENV == "prod" else table_dev
+
 # Add CORS middleware
 origins = [
     "http://localhost:8000",
@@ -31,4 +41,3 @@ handler = Mangum(app)
 @app.get("/")
 def read_root():
     return {"success": True, "message": "Hello, World!"}
-
