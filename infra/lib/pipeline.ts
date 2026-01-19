@@ -43,14 +43,11 @@ export class Pipeline extends cdk.Stack {
             runtimeVersions: {
               nodejs: "20",
             },
-            commands: [
-              "npm ci --prefix infra",
-              "npm ci --prefix frontend",
-            ],
+            commands: ["npm ci --prefix infra"],
           },
           build: {
             commands: [
-              "npm --prefix frontend run build",
+              "if [ -d frontend/build ]; then echo \"Using prebuilt frontend/build\"; else npm ci --prefix frontend && npm --prefix frontend run build; fi",
               "cd infra",
               "npx cdk synth -o dist",
             ],
@@ -80,17 +77,14 @@ export class Pipeline extends cdk.Stack {
         version: "0.2",
         phases: {
           install: {
-            runtimeVersions: {
+            "runtime-versions": {
               nodejs: "20",
             },
-            commands: [
-              "npm ci --prefix infra",
-              "npm ci --prefix frontend",
-            ],
+            commands: ["npm ci --prefix infra"],
           },
           build: {
             commands: [
-              "npm --prefix frontend run build",
+              "if [ -d frontend/build ]; then echo \"Using prebuilt frontend/build\"; else npm ci --prefix frontend && npm --prefix frontend run build; fi",
               "cd infra",
               "npx cdk deploy InfraStack --require-approval never",
             ],
