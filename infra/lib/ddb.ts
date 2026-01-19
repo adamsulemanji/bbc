@@ -11,7 +11,7 @@ export class DynamoDBConstruct extends Construct {
 
     // ******* Meals Tables *******
     this.bbcTable_prod = new dynamodb.Table(this, "bbc-prod", {
-      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: "mealID", type: dynamodb.AttributeType.STRING },
       tableName: "bbc_prod",
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
@@ -19,7 +19,7 @@ export class DynamoDBConstruct extends Construct {
     });
 
     this.bbcTable_dev = new dynamodb.Table(this, "bbc-dev", {
-      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: "mealID", type: dynamodb.AttributeType.STRING },
       tableName: "bbc_dev",
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
