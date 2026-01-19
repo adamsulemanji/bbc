@@ -14,11 +14,11 @@ Run the frontend dev server:
 npm run dev
 ```
 
-## Git hooks (Husky)
-This repo uses a Husky pre-commit hook to run `./build.sh` on commit.
+## Git hooks (Lefthook)
+This repo uses a Lefthook pre-commit hook to run `./build.sh` on commit.
 
 Setup:
 ```
 npm install
-npm run prepare
+npx lefthook install
 ```

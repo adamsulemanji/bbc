@@ -3,12 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "prepare": "husky install",
     "install:all": "npm --prefix frontend install && npm --prefix infra install",
-    "postinstall": "npm run install:all",
+    "postinstall": "lefthook install && npm run install:all",
     "dev": "npm run install:all && npm --prefix frontend run dev"
   },
   "devDependencies": {
-    "husky": "^9.1.7"
+    "lefthook": "^1.6.15"
   }
 }

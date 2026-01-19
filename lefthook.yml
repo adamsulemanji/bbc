@@ -1,0 +1,4 @@
+pre-commit:
+  commands:
+    build:
+      run: bash ./build.sh

@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # print all the .env.production variables
-cat .env.production
+if [ -f ".env.production" ]; then
+    cat .env.production
+else
+    echo ".env.production not found; using environment variables."
+fi
 
 if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
     . "$NVM_DIR/nvm.sh"
@@ -12,7 +16,11 @@ if command -v nvm >/dev/null 2>&1; then
 fi
 
 # Load the .env.production variables
-export $(cat .env.production | xargs)
+if [ -f ".env.production" ]; then
+    set -a
+    . ./.env.production
+    set +a
+fi
 
 
 # Run the Next.js build command directly to avoid recursion
